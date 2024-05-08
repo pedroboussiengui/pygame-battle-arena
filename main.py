@@ -1,6 +1,6 @@
 import pygame
 import sys
-from src.hero import WarriorSprite  # Importar a classe WarriorSprite do arquivo separado
+from src.hero import WarriorSprite, RotatingAxe
 from src.scanario import Block, blocks
 from src.text import Text
 
@@ -34,6 +34,8 @@ def main():
                 elif event.key == pygame.K_UP:
                     warrior_sprite.jump()
                 elif event.key == pygame.K_q:
+                    # warrior_sprite.rotate_axe.x, warrior_sprite.rotate_axe.y = warrior_sprite.player_x, warrior_sprite.player_y
+                    warrior_sprite.rotate_axe.append(RotatingAxe(warrior_sprite.player_x, warrior_sprite.player_y + 30))
                     warrior_sprite.throwing_axe = True
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:

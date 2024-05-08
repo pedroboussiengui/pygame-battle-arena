@@ -20,7 +20,7 @@ class RotatingAxe:
                 scaled_sprite = pygame.transform.scale(sprite, (self.rotating_axe.get_width() // 3 * 0.1, self.rotating_axe.get_height() // 3 * 0.1))
                 self.frames_rotation_axe.append(scaled_sprite)
 
-    def update(self, x, y):
+    def update(self):
         self.x = self.x + self.speed
         self.frame_rotating_axe = (self.frame_rotating_axe + 1) % (len(self.frames_rotation_axe))
         
@@ -81,10 +81,12 @@ class WarriorSprite:
 
         self.throwing_axe = False
 
-        self.rotate_axe = RotatingAxe(self.player_x, self.player_y)
+        self.rotate_axe = []
+        
+        self.atk_d = 30
     
     def rect(self):
-        return pygame.Rect(self.player_x, self.player_y, self.frame_width, self.frame_height)
+        return pygame.Rect(self.player_x + 30, self.player_y + self.frame_height // 2, self.frame_width-60, self.frame_height // 2)
 
     def jump(self):
         if self.dy == 0:
@@ -105,7 +107,10 @@ class WarriorSprite:
         
         if current_time - self.last_update > self.animation_atk * 1000:  # converter para milissegundos
             if self.throwing_axe:
-                self.rotate_axe.update()
+                for i in self.rotate_axe:
+                    i.update()
+                    if i.x > 700:
+                        self.rotate_axe.remove(i)
             if self.attacking:
                 self.frame_index_atk = (self.frame_index_atk + 1) % len(self.frames_atk)
                 if self.frame_index_atk == len(self.frames_atk) - 1:
@@ -114,6 +119,7 @@ class WarriorSprite:
 
     def draw(self, screen):
         self.draw_hitbox(screen)
+        self.draw_attack_hitbox(screen)
         self.draw_health_bar(screen, max_health=self.max_health, current_health=self.current_health)
         if self.throwing_axe:
             self.rotate_axe_sprite(screen)
@@ -138,8 +144,16 @@ class WarriorSprite:
                 screen.blit(flipped_frame, (self.player_x, self.player_y))
     
     def draw_hitbox(self, screen):
-        hitbox_rect = pygame.Rect(self.player_x, self.player_y + self.frame_height // 2, self.frame_width, self.frame_height // 2)
+        # hitbox_rect = pygame.Rect(self.player_x, self.player_y + self.frame_height // 2, self.frame_width, self.frame_height // 2)
+        hitbox_rect = self.rect()
         pygame.draw.rect(screen, (0, 0, 0), hitbox_rect, 2)  # Desenha a hitbox com borda preta
+
+    def draw_attack_hitbox(self, screen):
+        if self.direction == 'right':
+            atk_hitbox = pygame.Rect(self.player_x + self.atk_d, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d, self.frame_height // 2)
+        else:
+            atk_hitbox = pygame.Rect(self.player_x, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d,  self.frame_height // 2)
+        pygame.draw.rect(screen, (255, 0, 0), atk_hitbox, 2)
 
     def draw_health_bar(self, screen, max_health, current_health):
         # Define as cores da barra de vida
@@ -161,7 +175,8 @@ class WarriorSprite:
         self.current_health = self.current_health - damage
 
     def rotate_axe_sprite(self, screen):
-        self.rotate_axe.draw(screen)
+        for i in self.rotate_axe:
+            i.draw(screen)
 
 
         # screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.axe_x, self.axe_y))
