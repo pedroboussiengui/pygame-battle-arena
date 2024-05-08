@@ -1,5 +1,32 @@
 import pygame
 
+class RotatingAxe:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+        self.speed = 20
+        self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
+
+        self.frame_rotating_axe = 0
+
+        self.frames_rotation_axe = []
+        for row in range(3):
+            for col in range(3):
+                if (row == 2 and col == 2):
+                    break
+                x = col * self.rotating_axe.get_width() // 3
+                y = row * self.rotating_axe.get_height() // 3
+                sprite = self.rotating_axe.subsurface(pygame.Rect(x, y, self.rotating_axe.get_width() // 3, self.rotating_axe.get_height() // 3))
+                scaled_sprite = pygame.transform.scale(sprite, (self.rotating_axe.get_width() // 3 * 0.1, self.rotating_axe.get_height() // 3 * 0.1))
+                self.frames_rotation_axe.append(scaled_sprite)
+
+    def update(self, x, y):
+        self.x = self.x + self.speed
+        self.frame_rotating_axe = (self.frame_rotating_axe + 1) % (len(self.frames_rotation_axe))
+        
+    def draw(self, screen):
+        screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.x, self.y))
+
 class WarriorSprite:
     def __init__(self):
         self.max_health = 100
@@ -8,7 +35,7 @@ class WarriorSprite:
         self.warrior_atk = pygame.image.load('./src/assets/Warrior_1/Attack_1.png')
         self.warrior_walk = pygame.image.load('./src/assets/Warrior_1/Walk.png')
 
-        self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
+        # self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
 
         self.frame_width = 96
         self.frame_height = 96
@@ -23,22 +50,21 @@ class WarriorSprite:
             frame = self.warrior_walk.subsurface(pygame.Rect(x, 0, self.frame_width, self.frame_height))
             self.frames_walk.append(frame)
 
-        self.frames_rotation_axe = []
-        for row in range(3):
-            for col in range(3):
-                if (row == 2 and col == 2):
-                    break
-                x = col * self.rotating_axe.get_width() // 3
-                y = row * self.rotating_axe.get_height() // 3
-                print(x, y)
-                sprite = self.rotating_axe.subsurface(pygame.Rect(x, y, self.rotating_axe.get_width() // 3, self.rotating_axe.get_height() // 3))
-                scaled_sprite = pygame.transform.scale(sprite, (self.rotating_axe.get_width() // 3 * 0.1, self.rotating_axe.get_height() // 3 * 0.1))
-                self.frames_rotation_axe.append(scaled_sprite)
+        # self.frames_rotation_axe = []
+        # for row in range(3):
+        #     for col in range(3):
+        #         if (row == 2 and col == 2):
+        #             break
+        #         x = col * self.rotating_axe.get_width() // 3
+        #         y = row * self.rotating_axe.get_height() // 3
+        #         sprite = self.rotating_axe.subsurface(pygame.Rect(x, y, self.rotating_axe.get_width() // 3, self.rotating_axe.get_height() // 3))
+        #         scaled_sprite = pygame.transform.scale(sprite, (self.rotating_axe.get_width() // 3 * 0.1, self.rotating_axe.get_height() // 3 * 0.1))
+        #         self.frames_rotation_axe.append(scaled_sprite)
 
         self.frame_index_walk = 0
         self.frame_index_atk = 0
-        self.frame_rotating_axe = 0
-        self.animation_walk = 0.1
+        # self.frame_rotating_axe = 0
+        self.animation_walk = 0.01
         self.animation_atk = 0.1
         self.last_update = pygame.time.get_ticks()
         self.moving = False
@@ -47,10 +73,27 @@ class WarriorSprite:
 
         self.player_x = 100
         self.player_y = 300
-        self.speed = 25
+        # self.axe_x = self.player_x
+        # self.axe_y = self.player_y
+        self.speed = 3
+        self.dy = 0
+        self.gravity = 0.5  # Valor da gravidade
+
+        self.throwing_axe = False
+
+        self.rotate_axe = RotatingAxe(self.player_x, self.player_y)
+    
+    def rect(self):
+        return pygame.Rect(self.player_x, self.player_y, self.frame_width, self.frame_height)
+
+    def jump(self):
+        if self.dy == 0:
+            self.dy = -10
 
     def update(self):
         current_time = pygame.time.get_ticks()
+        self.dy += self.gravity
+        self.player_y += self.dy
         if current_time - self.last_update > self.animation_walk * 1000:  # converter para milissegundos
             if self.moving:
                 self.frame_index_walk = (self.frame_index_walk + 1) % len(self.frames_walk)
@@ -61,7 +104,8 @@ class WarriorSprite:
             # self.last_update = current_time
         
         if current_time - self.last_update > self.animation_atk * 1000:  # converter para milissegundos
-            self.frame_rotating_axe = (self.frame_rotating_axe + 1) % (len(self.frames_rotation_axe))
+            if self.throwing_axe:
+                self.rotate_axe.update()
             if self.attacking:
                 self.frame_index_atk = (self.frame_index_atk + 1) % len(self.frames_atk)
                 if self.frame_index_atk == len(self.frames_atk) - 1:
@@ -71,7 +115,8 @@ class WarriorSprite:
     def draw(self, screen):
         self.draw_hitbox(screen)
         self.draw_health_bar(screen, max_health=self.max_health, current_health=self.current_health)
-        self.rotation_axe(screen)
+        if self.throwing_axe:
+            self.rotate_axe_sprite(screen)
         if self.moving:
             if self.direction == 'right':
                 screen.blit(self.frames_walk[self.frame_index_walk], (self.player_x, self.player_y))
@@ -115,6 +160,8 @@ class WarriorSprite:
     def take_damage(self, damage):
         self.current_health = self.current_health - damage
 
-    
-    def rotation_axe(self, screen):
-        screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.player_x, self.player_y - 250))
+    def rotate_axe_sprite(self, screen):
+        self.rotate_axe.draw(screen)
+
+
+        # screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.axe_x, self.axe_y))

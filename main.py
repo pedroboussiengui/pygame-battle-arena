@@ -1,8 +1,12 @@
 import pygame
 import sys
 from src.hero import WarriorSprite  # Importar a classe WarriorSprite do arquivo separado
+from src.scanario import Block, blocks
+from src.text import Text
 
 pygame.init()
+
+text = Text(100, 100)
 
 # Função principal (main)
 def main():
@@ -27,6 +31,10 @@ def main():
                     warrior_sprite.direction = 'right'
                 elif event.key == pygame.K_SPACE:
                     warrior_sprite.attacking = True
+                elif event.key == pygame.K_UP:
+                    warrior_sprite.jump()
+                elif event.key == pygame.K_q:
+                    warrior_sprite.throwing_axe = True
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                     warrior_sprite.moving = False
@@ -37,6 +45,17 @@ def main():
 
         warrior_sprite.update()
         warrior_sprite.draw(screen)
+
+        text.draw(screen, f'x:{warrior_sprite.player_x} - y:{warrior_sprite.player_y}')
+
+        for block in blocks:
+            block.draw(screen)
+            # check if collision is by top, bot, left or right
+            if warrior_sprite.rect().colliderect(block.rect):
+                # warrior_sprite.player_x = block.rect.left - warrior_sprite.frame_width
+                warrior_sprite.player_y = block.rect.top - warrior_sprite.frame_height + 1
+                warrior_sprite.dy = 0
+
 
         pygame.display.flip()
         clock.tick(30)  # 30 FPS
