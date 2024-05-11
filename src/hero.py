@@ -1,10 +1,12 @@
 import pygame
+from .text import Text
 
 class RotatingAxe:
-    def __init__(self, x, y):
+    def __init__(self, x, y, direction):
         self.x = x
         self.y = y
-        self.speed = 20
+        self.dir = direction
+        self.speed = 50
         self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
 
         self.frame_rotating_axe = 0
@@ -21,7 +23,10 @@ class RotatingAxe:
                 self.frames_rotation_axe.append(scaled_sprite)
 
     def update(self):
-        self.x = self.x + self.speed
+        if self.dir == 'right':
+            self.x = self.x + self.speed
+        else:
+            self.x = self.x - self.speed
         self.frame_rotating_axe = (self.frame_rotating_axe + 1) % (len(self.frames_rotation_axe))
         
     def draw(self, screen):
@@ -34,6 +39,7 @@ class WarriorSprite:
 
         self.warrior_atk = pygame.image.load('./src/assets/Warrior_1/Attack_1.png')
         self.warrior_walk = pygame.image.load('./src/assets/Warrior_1/Walk.png')
+        self.warrior_jump = pygame.image.load('./src/assets/Warrior_1/Jump.png')
 
         # self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
 
@@ -50,6 +56,11 @@ class WarriorSprite:
             frame = self.warrior_walk.subsurface(pygame.Rect(x, 0, self.frame_width, self.frame_height))
             self.frames_walk.append(frame)
 
+        self.frames_jump = []
+        for x in range(0, self.warrior_jump.get_width(), self.frame_width):
+            frame = self.warrior_jump.subsurface(pygame.Rect(x, 0, self.frame_width, self.frame_height))
+            self.frames_jump.append(frame)
+
         # self.frames_rotation_axe = []
         # for row in range(3):
         #     for col in range(3):
@@ -63,12 +74,16 @@ class WarriorSprite:
 
         self.frame_index_walk = 0
         self.frame_index_atk = 0
+        self.frame_index_jump = 0
         # self.frame_rotating_axe = 0
         self.animation_walk = 0.01
         self.animation_atk = 0.1
+        self.animation_jump = 0.1
+
         self.last_update = pygame.time.get_ticks()
         self.moving = False
         self.attacking = False
+        self.jumping = False
         self.direction = 'right'  # Direção inicial do personagem
 
         self.player_x = 100
@@ -84,18 +99,27 @@ class WarriorSprite:
         self.rotate_axe = []
         
         self.atk_d = 30
+
+        self.damage_frames = []
     
     def rect(self):
         return pygame.Rect(self.player_x + 30, self.player_y + self.frame_height // 2, self.frame_width-60, self.frame_height // 2)
 
     def jump(self):
+        self.jumping = True
         if self.dy == 0:
             self.dy = -10
 
-    def update(self):
+    def update(self, fps):
         current_time = pygame.time.get_ticks()
         self.dy += self.gravity
         self.player_y += self.dy
+
+        for d in self.damage_frames:
+            d.update(fps)
+            if d.deletable == True:
+                self.damage_frames.remove(d)
+
         if current_time - self.last_update > self.animation_walk * 1000:  # converter para milissegundos
             if self.moving:
                 self.frame_index_walk = (self.frame_index_walk + 1) % len(self.frames_walk)
@@ -105,11 +129,17 @@ class WarriorSprite:
                      self.player_x = self.player_x - self.speed
             # self.last_update = current_time
         
+        if current_time - self.last_update > self.animation_jump * 1000:
+            if self.jumping:
+                self.frame_index_jump = (self.frame_index_jump + 1) % len(self.frames_jump)
+                if self.frame_index_jump == len(self.frames_jump) - 1:
+                    self.jumping = False
+        
         if current_time - self.last_update > self.animation_atk * 1000:  # converter para milissegundos
             if self.throwing_axe:
                 for i in self.rotate_axe:
                     i.update()
-                    if i.x > 700:
+                    if i.x > 700 or i.x < 10:
                         self.rotate_axe.remove(i)
             if self.attacking:
                 self.frame_index_atk = (self.frame_index_atk + 1) % len(self.frames_atk)
@@ -121,9 +151,18 @@ class WarriorSprite:
         self.draw_hitbox(screen)
         self.draw_attack_hitbox(screen)
         self.draw_health_bar(screen, max_health=self.max_health, current_health=self.current_health)
+
+        for d in self.damage_frames:
+            d.draw(screen, d.text)
+
         if self.throwing_axe:
             self.rotate_axe_sprite(screen)
-        if self.moving:
+
+        if self.jumping:
+            screen.blit(self.frames_jump[self.frame_index_jump], (self.player_x, self.player_y))
+            if self.dy == 0:
+                self.jumping = False
+        elif self.moving:
             if self.direction == 'right':
                 screen.blit(self.frames_walk[self.frame_index_walk], (self.player_x, self.player_y))
             else:  # Flip horizontal se a direção for 'left'
@@ -156,6 +195,12 @@ class WarriorSprite:
         pygame.draw.rect(screen, (255, 0, 0), atk_hitbox, 2)
 
     def draw_health_bar(self, screen, max_health, current_health):
+
+        if self.current_health < 0:
+            self.current_health = 0
+
+        t = Text(self.player_x, self.player_y, size=20, time=-1)
+        t.draw(screen, f'{self.current_health}/{self.max_health}')
         # Define as cores da barra de vida
         bar_color = (0, 255, 0)  # Verde para saúde alta
         if current_health <= max_health / 2:
@@ -171,7 +216,9 @@ class WarriorSprite:
         health_bar_rect = pygame.Rect(self.player_x, self.player_y + self.frame_height // 2 - 20, bar_width, 5)
         pygame.draw.rect(screen, bar_color, health_bar_rect)
     
-    def take_damage(self, damage):
+    def take_damage(self, screen, damage):
+        t = Text(self.player_x + 100, self.player_y, size=30, time=700, color=(255,0,0), text=str(damage))
+        self.damage_frames.append(t)
         self.current_health = self.current_health - damage
 
     def rotate_axe_sprite(self, screen):
