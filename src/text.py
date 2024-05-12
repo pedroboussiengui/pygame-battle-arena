@@ -24,6 +24,9 @@ class Text:
                 self.deletable = True
 
 
+# class FixedText(Text):
+
+# class FloatingText(Text):
 
 
 # class Text(pygame.sprite.Sprite):

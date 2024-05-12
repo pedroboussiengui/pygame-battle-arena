@@ -1,4 +1,6 @@
 import pygame
+from .text import Text
+from .shared.health_bar import HealthBar
 from pygame import mixer
 
 pygame.mixer.init(44100, -16, 2, 2048)
@@ -45,6 +47,8 @@ class Goblin:
         self.pos_y = 450
         self.speed = 30
 
+        self.name = 'Goblin'
+
         self.scale = 0.1
 
         self.damage = 25
@@ -73,6 +77,8 @@ class Goblin:
 
         self.sprint_width = self.sprint_width * self.scale
         self.sprint_heigth = self.sprint_heigth * self.scale
+
+        self.health_bar = HealthBar(self.sprint_width, self.name)
         
         self.last_update = pygame.time.get_ticks()
         self.attacking = False
@@ -86,8 +92,8 @@ class Goblin:
         self.arrows = []
         self.current_arrow = None
     
-    def new_arrow(self):
-        self.current_arrow = Arrow(self.pos_x + 5, self.pos_y + 25, self.direction)
+    def attack(self):
+        self.attacking = True
     
     def get_rect(self):
         return pygame.Rect(self.pos_x, self.pos_y, self.sprint_width, self.sprint_heigth)
@@ -100,18 +106,12 @@ class Goblin:
         self.damaged = True
 
     def draw_health_bar(self, screen):
-        if self.current_health < 0:
-            self.current_health = 0
-
-        # Calcula a largura da barra de vida com base na porcentagem de vida restante
-        health_percentage = self.current_health / self.max_health
-        bar_width = int(health_percentage * self.sprint_width)
-
-        # Desenha a barra de vida acima do personagem
-        health_bar_rect = pygame.Rect(self.pos_x, self.pos_y, bar_width, 5)
-        pygame.draw.rect(screen, (0, 255, 0), health_bar_rect)
+        self.health_bar.draw(screen, self.current_health, self.max_health, self.pos_x, self.pos_y)
+    
+    def jump(self):
+        print('jumping!!')
         
-    def update(self):
+    def update(self, FPS):
         current_time = pygame.time.get_ticks()
         if current_time - self.last_update > 0.1 * 1000:
             for i in self.arrows:
@@ -126,10 +126,10 @@ class Goblin:
 
             if self.attacking:
                 self.index_atk = (self.index_atk + 1) % len(self.frames_atk)
-                if self.index_atk == 3:
-                    self.current_arrow.arrow_shot_sound.play()
                 if self.index_atk == 5:
+                    self.current_arrow = Arrow(self.pos_x + 5, self.pos_y + 25, self.direction)
                     self.arrows.append(self.current_arrow)
+                    self.current_arrow.arrow_shot_sound.play()
                 if self.index_atk == len(self.frames_atk) - 1:
                     self.attacking = False
 
@@ -147,9 +147,6 @@ class Goblin:
         self.draw_health_bar(screen)
         for i in self.arrows:
             i.draw(screen)
-        
-        if self.damaged:
-            screen.blit(self.damage_sprites[self.damage_index], (self.pos_x, self.pos_y))
 
         if self.moving:
             if self.direction == 'right':
@@ -169,4 +166,8 @@ class Goblin:
             else:
                 flipped_frame = pygame.transform.flip(self.frames_walk[self.index_move], True, False)
                 screen.blit(flipped_frame, (self.pos_x, self.pos_y))
+        
+        # as animações que aparecem por cima devem ir por último
+        if self.damaged:
+            screen.blit(self.damage_sprites[self.damage_index], (self.pos_x, self.pos_y))
 

@@ -2,6 +2,7 @@ import pygame
 from .text import Text
 from pygame import mixer
 from .GoblinArcher import Goblin
+from .shared.health_bar import HealthBar
 
 pygame.mixer.init(44100, -16, 2, 2048)
 
@@ -36,10 +37,11 @@ class RotatingAxe:
     def draw(self, screen):
         screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.x, self.y))
 
-class WarriorSprite:
+class Warrior:
     def __init__(self):
         self.max_health = 100
         self.current_health = self.max_health
+        self.name = 'Warrior'
 
         self.warrior_atk = pygame.image.load('./src/assets/Warrior_1/Attack_1.png')
         self.warrior_walk = pygame.image.load('./src/assets/Warrior_1/Walk.png')
@@ -89,6 +91,8 @@ class WarriorSprite:
         self.damage = 20
         # self.damage_index = 0
 
+        self.health_bar = HealthBar(self.frame_width, self.name)
+
         self.last_update = pygame.time.get_ticks()
         self.moving = False
         self.attacking = False
@@ -112,7 +116,20 @@ class WarriorSprite:
         self.damage_frames = []
 
         self.can_damage = False
-        self.obj_damaged = None
+        # self.obj_damaged = None
+
+        self.enemies = []
+    
+    def attack(self):
+        self.attacking = True
+    
+    def add_enemy(self, enemy: Goblin):
+        if enemy not in self.enemies:
+            self.enemies.append(enemy)
+    
+    def remove_enemy(self, enemy: Goblin):
+        if enemy in self.enemies:
+            self.enemies.remove(enemy)
     
     def rect(self):
         return pygame.Rect(self.player_x + 30, self.player_y + self.frame_height // 2, self.frame_width-60, self.frame_height // 2)
@@ -157,9 +174,9 @@ class WarriorSprite:
                 self.frame_index_atk = (self.frame_index_atk + 1) % len(self.frames_atk)
                 if self.frame_index_atk == 2:
                     self.axe_hit.play()
-                if self.frame_index_atk == 2 and self.can_damage:
-                    print('hitting')
-                    self.to_damage(self.obj_damaged)
+                if self.frame_index_atk == 2:
+                    for e in self.enemies:
+                        self.to_damage(e)
                 if self.frame_index_atk == len(self.frames_atk) - 1:
                     self.attacking = False
                 # self.damage_index = (self.damage_index + 1) % len(self.damage_sprites)
@@ -171,7 +188,7 @@ class WarriorSprite:
     def draw(self, screen):
         # self.draw_hitbox(screen)
         # self.draw_attack_hitbox(screen)
-        self.draw_health_bar(screen, max_health=self.max_health, current_health=self.current_health)
+        self.draw_health_bar(screen)
 
         for d in self.damage_frames:
             d.draw(screen, d.text)
@@ -220,27 +237,8 @@ class WarriorSprite:
             return pygame.Rect(self.player_x + self.atk_d, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d, self.frame_height // 2)
         return pygame.Rect(self.player_x, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d,  self.frame_height // 2)
 
-    def draw_health_bar(self, screen, max_health, current_health):
-
-        if self.current_health < 0:
-            self.current_health = 0
-
-        t = Text(self.player_x, self.player_y, size=20, time=-1)
-        t.draw(screen, f'{self.current_health}/{self.max_health}')
-        # Define as cores da barra de vida
-        bar_color = (0, 255, 0)  # Verde para saúde alta
-        if current_health <= max_health / 2:
-            bar_color = (255, 255, 0)  # Amarelo para saúde moderada
-        if current_health <= max_health / 4:
-            bar_color = (255, 0, 0)  # Vermelho para saúde baixa
-
-        # Calcula a largura da barra de vida com base na porcentagem de vida restante
-        health_percentage = current_health / max_health
-        bar_width = int(health_percentage * self.frame_width)
-
-        # Desenha a barra de vida acima do personagem
-        health_bar_rect = pygame.Rect(self.player_x, self.player_y + self.frame_height // 2 - 20, bar_width, 5)
-        pygame.draw.rect(screen, bar_color, health_bar_rect)
+    def draw_health_bar(self, screen):
+        self.health_bar.draw(screen, self.current_health, self.max_health, self.player_x, self.player_y)
     
     def take_damage(self, screen, damage):
         t = Text(self.player_x + 100, self.player_y, size=30, time=700, color=(255,0,0), text=str(damage))
