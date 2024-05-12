@@ -39,14 +39,16 @@ class Goblin:
         self.current_health = self.max_health
 
         self.throw_arrow_sprites = pygame.image.load('./src/assets/GoblinPack/GoblinArcher-Sheet.png')
+        self.damage_sprites = [pygame.image.load('src/assets/pixil-frame-0.png'),pygame.image.load('src/assets/pixil-frame-1.png'),pygame.image.load('src/assets/pixil-frame-2.png') ]
 
-        self.pos_x = 100
+        self.pos_x = 400
         self.pos_y = 450
         self.speed = 30
 
         self.scale = 0.1
 
         self.damage = 25
+        self.damage_index = 0
         
         self.sprint_width = self.throw_arrow_sprites.get_width() // 9
         self.sprint_heigth = self.throw_arrow_sprites.get_height() // 5
@@ -68,6 +70,9 @@ class Goblin:
                     scaled_sprite = pygame.transform.scale(sprite, (self.sprint_width * self.scale, self.sprint_heigth * self.scale))
                     self.frames_atk.append(scaled_sprite)
         self.frames_walk = self.frames_walk[:-1]
+
+        self.sprint_width = self.sprint_width * self.scale
+        self.sprint_heigth = self.sprint_heigth * self.scale
         
         self.last_update = pygame.time.get_ticks()
         self.attacking = False
@@ -76,11 +81,35 @@ class Goblin:
         self.index_move = 0
         self.direction = 'right'
 
+        self.damaged = False
+
         self.arrows = []
         self.current_arrow = None
     
     def new_arrow(self):
         self.current_arrow = Arrow(self.pos_x + 5, self.pos_y + 25, self.direction)
+    
+    def get_rect(self):
+        return pygame.Rect(self.pos_x, self.pos_y, self.sprint_width, self.sprint_heigth)
+
+    def draw_rect(self, screen):
+        pygame.draw.rect(screen, (0, 0, 0), self.get_rect(), 2)
+    
+    def take_damage(self, damage):
+        self.current_health = self.current_health - damage
+        self.damaged = True
+
+    def draw_health_bar(self, screen):
+        if self.current_health < 0:
+            self.current_health = 0
+
+        # Calcula a largura da barra de vida com base na porcentagem de vida restante
+        health_percentage = self.current_health / self.max_health
+        bar_width = int(health_percentage * self.sprint_width)
+
+        # Desenha a barra de vida acima do personagem
+        health_bar_rect = pygame.Rect(self.pos_x, self.pos_y, bar_width, 5)
+        pygame.draw.rect(screen, (0, 255, 0), health_bar_rect)
         
     def update(self):
         current_time = pygame.time.get_ticks()
@@ -89,6 +118,11 @@ class Goblin:
                 i.update()
                 if i.pos_x > 700 or i.pos_x < 10:
                     self.arrows.remove(i)
+            
+            if self.damaged:
+                self.damage_index = (self.damage_index + 1) % len(self.damage_sprites)
+                if self.damage_index == len(self.damage_sprites) - 1:
+                    self.damaged = False
 
             if self.attacking:
                 self.index_atk = (self.index_atk + 1) % len(self.frames_atk)
@@ -109,8 +143,14 @@ class Goblin:
             self.last_update = current_time
 
     def draw(self, screen):
+        # self.draw_rect(screen)
+        self.draw_health_bar(screen)
         for i in self.arrows:
             i.draw(screen)
+        
+        if self.damaged:
+            screen.blit(self.damage_sprites[self.damage_index], (self.pos_x, self.pos_y))
+
         if self.moving:
             if self.direction == 'right':
                 screen.blit(self.frames_walk[self.index_move], (self.pos_x, self.pos_y))

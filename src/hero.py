@@ -1,5 +1,9 @@
 import pygame
 from .text import Text
+from pygame import mixer
+from .GoblinArcher import Goblin
+
+pygame.mixer.init(44100, -16, 2, 2048)
 
 class RotatingAxe:
     def __init__(self, x, y, direction):
@@ -40,6 +44,8 @@ class WarriorSprite:
         self.warrior_atk = pygame.image.load('./src/assets/Warrior_1/Attack_1.png')
         self.warrior_walk = pygame.image.load('./src/assets/Warrior_1/Walk.png')
         self.warrior_jump = pygame.image.load('./src/assets/Warrior_1/Jump.png')
+        self.axe_hit = mixer.Sound('./src/assets/axe_hit.wav')
+        # self.damage_sprites = [pygame.image.load('src/assets/pixil-frame-0.png'),pygame.image.load('src/assets/pixil-frame-1.png'),pygame.image.load('src/assets/pixil-frame-2.png') ]
 
         # self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
 
@@ -80,6 +86,9 @@ class WarriorSprite:
         self.animation_atk = 0.1
         self.animation_jump = 0.1
 
+        self.damage = 20
+        # self.damage_index = 0
+
         self.last_update = pygame.time.get_ticks()
         self.moving = False
         self.attacking = False
@@ -101,6 +110,9 @@ class WarriorSprite:
         self.atk_d = 30
 
         self.damage_frames = []
+
+        self.can_damage = False
+        self.obj_damaged = None
     
     def rect(self):
         return pygame.Rect(self.player_x + 30, self.player_y + self.frame_height // 2, self.frame_width-60, self.frame_height // 2)
@@ -143,13 +155,22 @@ class WarriorSprite:
                         self.rotate_axe.remove(i)
             if self.attacking:
                 self.frame_index_atk = (self.frame_index_atk + 1) % len(self.frames_atk)
+                if self.frame_index_atk == 2:
+                    self.axe_hit.play()
+                if self.frame_index_atk == 2 and self.can_damage:
+                    print('hitting')
+                    self.to_damage(self.obj_damaged)
                 if self.frame_index_atk == len(self.frames_atk) - 1:
                     self.attacking = False
+                # self.damage_index = (self.damage_index + 1) % len(self.damage_sprites)
             self.last_update = current_time
+    
+    def to_damage(self, obj: Goblin):
+        obj.take_damage(self.damage)
 
     def draw(self, screen):
-        self.draw_hitbox(screen)
-        self.draw_attack_hitbox(screen)
+        # self.draw_hitbox(screen)
+        # self.draw_attack_hitbox(screen)
         self.draw_health_bar(screen, max_health=self.max_health, current_health=self.current_health)
 
         for d in self.damage_frames:
@@ -193,6 +214,11 @@ class WarriorSprite:
         else:
             atk_hitbox = pygame.Rect(self.player_x, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d,  self.frame_height // 2)
         pygame.draw.rect(screen, (255, 0, 0), atk_hitbox, 2)
+    
+    def get_atk_hitbox(self):
+        if self.direction == 'right':
+            return pygame.Rect(self.player_x + self.atk_d, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d, self.frame_height // 2)
+        return pygame.Rect(self.player_x, self.player_y + self.frame_height // 2, self.frame_width - self.atk_d,  self.frame_height // 2)
 
     def draw_health_bar(self, screen, max_health, current_health):
 
