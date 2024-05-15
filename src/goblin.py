@@ -2,11 +2,13 @@ import pygame
 from .text import Text
 from .shared.health_bar import HealthBar
 from pygame import mixer
+import random
+from .Square import TextFadeout
 
 pygame.mixer.init(44100, -16, 2, 2048)
 
 class Arrow:
-    def __init__(self, x, y, direction):
+    def __init__(self, x, y, direction, is_critical = False):
         self.arrow = pygame.image.load('./src/assets/GoblinPack/Arrow.png')
         self.arrow_shot_sound = mixer.Sound('./src/assets/throw_arrow.mp3')
         self.arrow_hitting_sound = mixer.Sound('./src/assets/arrow_impact.mp3')
@@ -16,6 +18,7 @@ class Arrow:
         self.pos_x = x
         self.pos_y = y
         self.speed = 70
+        self.is_critical = is_critical
         self.w = self.arrow.get_width()
         self.h = self.arrow.get_height()
     
@@ -39,6 +42,7 @@ class Goblin:
     def __init__(self):
         self.max_health = 80
         self.current_health = self.max_health
+        self.base_heal = 1 # cura 1 de vida a cada segundo
 
         self.throw_arrow_sprites = pygame.image.load('./src/assets/GoblinPack/GoblinArcher-Sheet.png')
         self.damage_sprites = [pygame.image.load('src/assets/pixil-frame-0.png'),pygame.image.load('src/assets/pixil-frame-1.png'),pygame.image.load('src/assets/pixil-frame-2.png') ]
@@ -51,7 +55,8 @@ class Goblin:
 
         self.scale = 0.1
 
-        self.damage = 25
+        self.damage = 5
+        self.critical_chance = 40
         self.damage_index = 0
         
         self.sprint_width = self.throw_arrow_sprites.get_width() // 9
@@ -89,11 +94,37 @@ class Goblin:
 
         self.damaged = False
 
-        self.arrows = []
+        self.arrows: list[Arrow] = []
         self.current_arrow = None
+
+        self.frames = pygame.sprite.Group() # frames de dano e cura 
+
+        # jump status
+        self.dy = 0
+        self.gravity = 0.5
+
+        # contador do warrior
+        self.c = 0
+
+        self.timers = [
+            (10, self.update_attacking),
+            (50, self.update_arrows), 
+            (100, self.update_move),
+            (1000, self.heal),
+            (100, self.frames.update)
+        ]
+    
+        self.last_print_times = [pygame.time.get_ticks() for _ in range(len(self.timers))]
     
     def attack(self):
         self.attacking = True
+
+    def add_count_atk(self):
+        self.c = self.c + 1
+
+    def draw_atk_counter(self, screen):
+        text = Text(self.pos_x, self.pos_y, size=30, time=-1)
+        text.draw(screen, str(self.c))
     
     def get_rect(self):
         return pygame.Rect(self.pos_x, self.pos_y, self.sprint_width, self.sprint_heigth)
@@ -109,42 +140,93 @@ class Goblin:
         self.health_bar.draw(screen, self.current_health, self.max_health, self.pos_x, self.pos_y)
     
     def jump(self):
-        print('jumping!!')
+        if self.dy == 0:
+            self.dy = -10
+
+    def heal(self):
+        if self.current_health > self.max_health:
+            self.current_health = self.max_health
+        if self.current_health < self.max_health:
+            frame_text = '+' + str(self.base_heal)
+            frame = TextFadeout(frame_text, self.pos_x + 50, self.pos_y - 10, 20, (0, 255, 0), duration=500)
+            self.frames.add(frame)
+            self.current_health = self.current_health + self.base_heal
         
     def update(self, FPS):
         current_time = pygame.time.get_ticks()
-        if current_time - self.last_update > 0.1 * 1000:
-            for i in self.arrows:
-                i.update()
-                if i.pos_x > 700 or i.pos_x < 10:
-                    self.arrows.remove(i)
+        self.dy += self.gravity
+        self.pos_y += self.dy
+
+        for i, (interval, func) in enumerate(self.timers):
+            if current_time - self.last_print_times[i] >= interval:
+                func()
+                self.last_print_times[i] = current_time
+        
+
+        # if current_time - self.last_update > 0.1 * 1000:
+        #     for i in self.arrows:
+        #         i.update()
+        #         if i.pos_x > 700 or i.pos_x < 10:
+        #             self.arrows.remove(i)
             
-            if self.damaged:
-                self.damage_index = (self.damage_index + 1) % len(self.damage_sprites)
-                if self.damage_index == len(self.damage_sprites) - 1:
-                    self.damaged = False
+        #     if self.damaged:
+        #         self.damage_index = (self.damage_index + 1) % len(self.damage_sprites)
+        #         if self.damage_index == len(self.damage_sprites) - 1:
+        #             self.damaged = False
 
-            if self.attacking:
-                self.index_atk = (self.index_atk + 1) % len(self.frames_atk)
-                if self.index_atk == 5:
-                    self.current_arrow = Arrow(self.pos_x + 5, self.pos_y + 25, self.direction)
-                    self.arrows.append(self.current_arrow)
-                    self.current_arrow.arrow_shot_sound.play()
-                if self.index_atk == len(self.frames_atk) - 1:
-                    self.attacking = False
+        #     if self.attacking:
+        #         self.index_atk = (self.index_atk + 1) % len(self.frames_atk)
+        #         if self.index_atk == 5:
+        #             self.current_arrow = Arrow(self.pos_x + 5, self.pos_y + 25, self.direction)
+        #             self.arrows.append(self.current_arrow)
+        #             self.current_arrow.arrow_shot_sound.play()
+        #         if self.index_atk == len(self.frames_atk) - 1:
+        #             self.attacking = False
 
-            if self.moving:
-                self.index_move = (self.index_move + 1) % len(self.frames_walk)
-                if self.direction == 'right':
-                    self.pos_x = self.pos_x + self.speed
-                else:
-                     self.pos_x = self.pos_x - self.speed
+        #     if self.moving:
+        #         self.index_move = (self.index_move + 1) % len(self.frames_walk)
+        #         if self.direction == 'right':
+        #             self.pos_x = self.pos_x + self.speed
+        #         else:
+        #              self.pos_x = self.pos_x - self.speed
 
-            self.last_update = current_time
+        #     self.last_update = current_time
+
+    def update_arrows(self):
+        for i in self.arrows:
+            i.update()
+            if i.pos_x > 700 or i.pos_x < 10:
+                self.arrows.remove(i)
+
+    def update_attacking(self):
+        if self.attacking:
+            self.index_atk = (self.index_atk + 1) % len(self.frames_atk)
+            if self.index_atk == 5:
+                is_critcal = self.calculate_critical()
+                self.current_arrow = Arrow(self.pos_x + 5, self.pos_y + 25, self.direction, is_critical=is_critcal)
+                self.arrows.append(self.current_arrow)
+                self.current_arrow.arrow_shot_sound.play()
+            if self.index_atk == len(self.frames_atk) - 1:
+                self.attacking = False
+    
+    def calculate_critical(self):
+        return random.randint(0, 101) < self.critical_chance
+
+    def update_move(self):
+        if self.moving:
+            self.index_move = (self.index_move + 1) % len(self.frames_walk)
+            if self.direction == 'right':
+                self.pos_x = self.pos_x + self.speed
+            else:
+                self.pos_x = self.pos_x - self.speed
 
     def draw(self, screen):
         # self.draw_rect(screen)
         self.draw_health_bar(screen)
+        self.draw_atk_counter(screen)
+
+        self.frames.draw(screen)
+
         for i in self.arrows:
             i.draw(screen)
 

@@ -1,10 +1,10 @@
 import pygame
 import sys
 from src.hero import Warrior, RotatingAxe
-from src.GoblinArcher import Goblin
+from src.goblin import Goblin
 from src.scanario import Block, blocks
 from src.text import Text
-from src.Square import Square
+from src.Square import Square, TextFadeout
 
 pygame.init()
 
@@ -18,6 +18,10 @@ def main():
     all_sprites = pygame.sprite.Group()
 
     text = Text(100, 100, size=30, time=-1)
+
+    text2 = TextFadeout("Fadeout Text", 300, 200, 36, (255, 0, 0), duration=500)
+
+    all_sprites.add(text2)
 
     warrior = Warrior()
     goblin = Goblin()
@@ -66,11 +70,11 @@ def main():
         goblin.update(FPS)
         goblin.draw(screen)
 
-        all_sprites.update(FPS)
+        all_sprites.update()
 
         all_sprites.draw(screen)
 
-        # text.draw(screen, f'x:{warrior.player_x} - y:{warrior.player_y}')
+        text.draw(screen, f'x:{warrior.player_x} - y:{warrior.player_y}')
 
         for block in blocks:
             block.draw(screen)
@@ -79,6 +83,10 @@ def main():
                 # warrior.player_x = block.rect.left - warrior.frame_width
                 warrior.player_y = block.rect.top - warrior.frame_height + 1
                 warrior.dy = 0
+            if goblin.get_rect().colliderect(block.rect):
+                # warrior.player_x = block.rect.left - warrior.frame_width
+                goblin.pos_y = block.rect.top - goblin.sprint_heigth + 1
+                goblin.dy = 0
 
         # print(warrior.enemies)
 
@@ -97,7 +105,7 @@ def main():
         for a in goblin.arrows:
             if a.get_rect().colliderect(warrior.rect()):
                 goblin.arrows.remove(a)
-                warrior.take_damage(screen, goblin.damage)
+                warrior.take_damage(screen, goblin.damage, a.is_critical)
                 a.arrow_hitting_sound.play()
 
         # print([(d.deletable, d.current_time) for d in warrior_sprite.damage_frames])

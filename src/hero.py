@@ -1,8 +1,9 @@
 import pygame
 from .text import Text
 from pygame import mixer
-from .GoblinArcher import Goblin
+from .goblin import Goblin
 from .shared.health_bar import HealthBar
+from .Square import TextFadeout
 
 pygame.mixer.init(44100, -16, 2, 2048)
 
@@ -85,10 +86,10 @@ class Warrior:
         self.frame_index_jump = 0
         # self.frame_rotating_axe = 0
         self.animation_walk = 0.01
-        self.animation_atk = 0.1
+        self.animation_atk = 0.08 # attack speedz
         self.animation_jump = 0.1
 
-        self.damage = 20
+        self.damage = 8
         # self.damage_index = 0
 
         self.health_bar = HealthBar(self.frame_width, self.name)
@@ -113,7 +114,8 @@ class Warrior:
         
         self.atk_d = 30
 
-        self.damage_frames = []
+        self.damage_frames = pygame.sprite.Group()
+
 
         self.can_damage = False
         # self.obj_damaged = None
@@ -123,6 +125,10 @@ class Warrior:
     def attack(self):
         self.attacking = True
     
+    def attack_counter(self):
+        for i in self.enemies:
+            i.add_count_atk()
+
     def add_enemy(self, enemy: Goblin):
         if enemy not in self.enemies:
             self.enemies.append(enemy)
@@ -144,10 +150,15 @@ class Warrior:
         self.dy += self.gravity
         self.player_y += self.dy
 
-        for d in self.damage_frames:
-            d.update(fps)
-            if d.deletable == True:
-                self.damage_frames.remove(d)
+        # for d in self.damage_frames:
+        #     d.update(fps)
+        #     if d.deletable == True:
+        #         self.damage_frames.remove(d)
+
+        self.damage_frames.update()
+
+        if current_time - self.last_update > 1.0 * 1000:
+            print("heal")
 
         if current_time - self.last_update > self.animation_walk * 1000:  # converter para milissegundos
             if self.moving:
@@ -175,6 +186,8 @@ class Warrior:
                 if self.frame_index_atk == 2:
                     self.axe_hit.play()
                 if self.frame_index_atk == 2:
+                    if len(self.enemies) != 0:
+                        self.attack_counter()
                     for e in self.enemies:
                         self.to_damage(e)
                 if self.frame_index_atk == len(self.frames_atk) - 1:
@@ -190,8 +203,12 @@ class Warrior:
         # self.draw_attack_hitbox(screen)
         self.draw_health_bar(screen)
 
-        for d in self.damage_frames:
-            d.draw(screen, d.text)
+        # for d in self.damage_frames:
+        #     d.draw(screen, d.text)
+
+        self.damage_frames.draw(screen)
+
+        # self.draw_atk_counter(screen)
 
         if self.throwing_axe:
             self.rotate_axe_sprite(screen)
@@ -240,10 +257,17 @@ class Warrior:
     def draw_health_bar(self, screen):
         self.health_bar.draw(screen, self.current_health, self.max_health, self.player_x, self.player_y)
     
-    def take_damage(self, screen, damage):
-        t = Text(self.player_x + 100, self.player_y, size=30, time=700, color=(255,0,0), text=str(damage))
-        self.damage_frames.append(t)
-        self.current_health = self.current_health - damage
+    def take_damage(self, screen, damage, is_critical):
+        # t = Text(self.player_x + 100, self.player_y, size=30, time=700, color=(255,0,0), text=str(damage))
+        if is_critical:
+            t = TextFadeout('☠'+str(damage * 2), self.player_x + 75, self.player_y, 40, (255, 0, 0), duration=500)
+            print('critical')
+            self.damage_frames.add(t)
+            self.current_health = self.current_health - 2 * damage
+        else:
+            t = TextFadeout(str(damage), self.player_x + 75, self.player_y, 20, (255, 0, 0), duration=500)
+            self.damage_frames.add(t)
+            self.current_health = self.current_health - damage
 
     def rotate_axe_sprite(self, screen):
         for i in self.rotate_axe:

@@ -22,6 +22,7 @@ class Text:
             self.current_time = self.current_time + 1
             if self.current_time >= (self.time * fps) // 1000:
                 self.deletable = True
+            
 
 
 # class FixedText(Text):
