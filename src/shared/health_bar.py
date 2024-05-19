@@ -35,12 +35,12 @@ class HealthBar:
         bar_width = int(health_percentage * self.width)
 
         health_bar_frame = pygame.Rect(pos_x-2, pos_y-2, self.width+4, self.height+4)
-        pygame.draw.rect(screen, colors['black'], health_bar_frame, 2)
+        pygame.draw.rect(screen, colors['black'], health_bar_frame)
 
         health_bar_rect = pygame.Rect(pos_x, pos_y, bar_width, self.height)
         pygame.draw.rect(screen, bar_color, health_bar_rect)
 
-        text_surface = self.font.render(f'{current_health}/{max_health}', True, colors['black'])
+        text_surface = self.font.render(f'{current_health}/{max_health}', True, colors['white'])
         text_rect = text_surface.get_rect(center=health_bar_frame.center)
         screen.blit(text_surface, text_rect)
 

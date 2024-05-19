@@ -38,16 +38,29 @@ class RotatingAxe:
     def draw(self, screen):
         screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.x, self.y))
 
+
+# class QAbility:
+#     def __init__(self, obj: Warrior):
+#         self.distance = 150
+#         self.direction = obj.direction
+#         self.cooldown = 60 * 3 # 3 segundos com 60 fps
+#         self.enemies_hitted = []
+#         self.damage = 40
+
+
 class Warrior:
     def __init__(self):
         self.max_health = 100
         self.current_health = self.max_health
         self.name = 'Warrior'
+        self.team = None
+        self.other_team = None
 
         self.warrior_atk = pygame.image.load('./src/assets/Warrior_1/Attack_1.png')
         self.warrior_walk = pygame.image.load('./src/assets/Warrior_1/Walk.png')
         self.warrior_jump = pygame.image.load('./src/assets/Warrior_1/Jump.png')
         self.axe_hit = mixer.Sound('./src/assets/axe_hit.wav')
+        self.stun_sprites = pygame.image.load('./src/assets/stun_sprites.png')
         # self.damage_sprites = [pygame.image.load('src/assets/pixil-frame-0.png'),pygame.image.load('src/assets/pixil-frame-1.png'),pygame.image.load('src/assets/pixil-frame-2.png') ]
 
         # self.rotating_axe = pygame.image.load('./src/assets/Red Axe sprite.png')
@@ -70,6 +83,11 @@ class Warrior:
             frame = self.warrior_jump.subsurface(pygame.Rect(x, 0, self.frame_width, self.frame_height))
             self.frames_jump.append(frame)
 
+        self.stuned_frames = []
+        for x in range(0, self.stun_sprites.get_width(), 100):
+            frame = self.stun_sprites.subsurface(pygame.Rect(x, 0, 100, 70))
+            self.stuned_frames.append(frame)
+
         # self.frames_rotation_axe = []
         # for row in range(3):
         #     for col in range(3):
@@ -84,6 +102,7 @@ class Warrior:
         self.frame_index_walk = 0
         self.frame_index_atk = 0
         self.frame_index_jump = 0
+        self.frame_index_stunned = 0
         # self.frame_rotating_axe = 0
         self.animation_walk = 0.01
         self.animation_atk = 0.08 # attack speedz
@@ -98,6 +117,7 @@ class Warrior:
         self.moving = False
         self.attacking = False
         self.jumping = False
+        self.stunned = False
         self.direction = 'right'  # Direção inicial do personagem
 
         self.player_x = 100
@@ -116,24 +136,42 @@ class Warrior:
 
         self.damage_frames = pygame.sprite.Group()
 
+        # desh ability by press E
+        self.dashing = False
+        self.E_distance = 150
+        self.e_direction = self.direction
+        self.final_x = None
+        self.cooldown = 0 # 5 segundos
+        self.enemies_hitted = []
+        ###################################
+
 
         self.can_damage = False
         # self.obj_damaged = None
 
         self.enemies = []
+
+    def get_data(self):
+        return (self.player_x, self.player_y, self.frame_index_walk, self.frame_index_atk, self.frame_index_jump)
+
+    def apply_data(self, data: tuple):
+        pass
     
     def attack(self):
         self.attacking = True
+    
+    def get_stun(self):
+        self.stunned = True
     
     def attack_counter(self):
         for i in self.enemies:
             i.add_count_atk()
 
-    def add_enemy(self, enemy: Goblin):
+    def add_enemy(self, enemy):
         if enemy not in self.enemies:
             self.enemies.append(enemy)
     
-    def remove_enemy(self, enemy: Goblin):
+    def remove_enemy(self, enemy):
         if enemy in self.enemies:
             self.enemies.remove(enemy)
     
@@ -144,6 +182,18 @@ class Warrior:
         self.jumping = True
         if self.dy == 0:
             self.dy = -10
+    
+    def Q_ability(self):
+        self.damage = self.damage * 2
+
+    def E_ability(self, obj: Goblin):
+        self.dashing = True
+        self.e_direction = self.direction
+        if self.e_direction == 'right':
+            self.final_x = self.player_x + self.E_distance
+        else:
+            self.final_x = self.player_x - self.E_distance
+
 
     def update(self, fps):
         current_time = pygame.time.get_ticks()
@@ -159,8 +209,42 @@ class Warrior:
 
         if current_time - self.last_update > 1.0 * 1000:
             print("heal")
+        
+        for i in self.other_team:
+            print(i)
+            if i.get_rect().colliderect(self.get_atk_hitbox()):
+                print('add enemy')
+                self.add_enemy(i)
+            else:
+                print('remove enemy')
+                self.remove_enemy(i)
 
         if current_time - self.last_update > self.animation_walk * 1000:  # converter para milissegundos
+            if self.dashing:
+                for i in self.other_team:
+                    # if isinstance(i, Goblin):
+                    if self.rect().colliderect(i.get_rect()) and i not in self.enemies_hitted:
+                        i.take_damage(30)
+                        self.enemies_hitted.append(i)
+                        print("hit")
+
+                if self.e_direction == 'right':
+                    self.player_x += 10
+                    if self.player_x >= self.final_x:
+                        self.dashing = False
+                        self.final_x = None
+                        self.enemies_hitted = []
+                else:
+                    self.player_x -= 10
+                    if self.player_x <= self.final_x:
+                        self.dashing = False
+                        self.final_x = None
+                        self.enemies_hitted = []
+                self.cooldown = 180 # segundos
+            else:
+                if self.cooldown > 0:
+                    self.cooldown -= 1
+
             if self.moving:
                 self.frame_index_walk = (self.frame_index_walk + 1) % len(self.frames_walk)
                 if self.direction == 'right':
@@ -168,6 +252,12 @@ class Warrior:
                 else:
                      self.player_x = self.player_x - self.speed
             # self.last_update = current_time
+        
+        if current_time - self.last_update > self.animation_walk * 1000:
+            if self.stunned:
+                self.frame_index_stunned = (self.frame_index_stunned + 1) % len(self.stuned_frames)
+                # if self.frame_index_stunned == len(self.stuned_frames) - 1:
+                #     self.stunned = False
         
         if current_time - self.last_update > self.animation_jump * 1000:
             if self.jumping:
@@ -212,6 +302,9 @@ class Warrior:
 
         if self.throwing_axe:
             self.rotate_axe_sprite(screen)
+
+        if self.stunned:
+            screen.blit(self.stuned_frames[self.frame_index_stunned], (self.player_x, self.player_y))
 
         if self.jumping:
             screen.blit(self.frames_jump[self.frame_index_jump], (self.player_x, self.player_y))
@@ -261,7 +354,7 @@ class Warrior:
         # t = Text(self.player_x + 100, self.player_y, size=30, time=700, color=(255,0,0), text=str(damage))
         if is_critical:
             t = TextFadeout('☠'+str(damage * 2), self.player_x + 75, self.player_y, 40, (255, 0, 0), duration=500)
-            print('critical')
+            # print('critical')
             self.damage_frames.add(t)
             self.current_health = self.current_health - 2 * damage
         else:
@@ -273,5 +366,7 @@ class Warrior:
         for i in self.rotate_axe:
             i.draw(screen)
 
+    def __repr__(self):
+        return self.name
 
         # screen.blit(self.frames_rotation_axe[self.frame_rotating_axe], (self.axe_x, self.axe_y))

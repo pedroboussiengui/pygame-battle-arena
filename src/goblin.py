@@ -52,6 +52,8 @@ class Goblin:
         self.speed = 30
 
         self.name = 'Goblin'
+        self.team = None
+        self.other_team = None
 
         self.scale = 0.1
 
@@ -86,8 +88,14 @@ class Goblin:
         self.health_bar = HealthBar(self.sprint_width, self.name)
         
         self.last_update = pygame.time.get_ticks()
+
         self.attacking = False
+        self.can_attack = True
+        self.atk_cooldown= 250
+        self.last_attack_time = 0
+
         self.moving = False
+        self.stunned = False
         self.index_atk = 0
         self.index_move = 0
         self.direction = 'right'
@@ -111,13 +119,17 @@ class Goblin:
             (50, self.update_arrows), 
             (100, self.update_move),
             (1000, self.heal),
-            (100, self.frames.update)
+            (100, self.frames.update),
+            (100, self.update_damage_frames)
         ]
     
         self.last_print_times = [pygame.time.get_ticks() for _ in range(len(self.timers))]
     
     def attack(self):
         self.attacking = True
+
+    # def attack_idle(self):
+
 
     def add_count_atk(self):
         self.c = self.c + 1
@@ -197,9 +209,15 @@ class Goblin:
             i.update()
             if i.pos_x > 700 or i.pos_x < 10:
                 self.arrows.remove(i)
+    
+    def update_damage_frames(self):
+        if self.damaged:
+            self.damage_index = (self.damage_index + 1) % len(self.damage_sprites)
+            if self.damage_index == len(self.damage_sprites) - 1:
+                self.damaged = False
 
     def update_attacking(self):
-        if self.attacking:
+        if self.attacking and self.can_attack:
             self.index_atk = (self.index_atk + 1) % len(self.frames_atk)
             if self.index_atk == 5:
                 is_critcal = self.calculate_critical()
@@ -208,6 +226,15 @@ class Goblin:
                 self.current_arrow.arrow_shot_sound.play()
             if self.index_atk == len(self.frames_atk) - 1:
                 self.attacking = False
+                self.last_attack_time = pygame.time.get_ticks()
+                self.can_attack = False
+        self.attack_idle()
+
+    def attack_idle(self):
+        current_time = pygame.time.get_ticks()
+        if current_time - self.last_attack_time >= self.atk_cooldown:
+            self.can_attack = True
+
     
     def calculate_critical(self):
         return random.randint(0, 101) < self.critical_chance
@@ -253,3 +280,5 @@ class Goblin:
         if self.damaged:
             screen.blit(self.damage_sprites[self.damage_index], (self.pos_x, self.pos_y))
 
+    def __repr__(self):
+        return self.name

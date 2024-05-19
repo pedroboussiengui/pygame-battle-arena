@@ -5,6 +5,7 @@ from src.goblin import Goblin
 from src.scanario import Block, blocks
 from src.text import Text
 from src.Square import Square, TextFadeout
+from src.teams import Team
 
 pygame.init()
 
@@ -14,6 +15,9 @@ def main():
     pygame.display.set_caption("Warrior Game")
     clock = pygame.time.Clock()
     FPS = 60
+
+    bg_image = pygame.image.load('./src/assets/background-misterious-jungle.png')
+    bg_image = pygame.transform.scale(bg_image, (bg_image.get_width() * 4, bg_image.get_height() * 4))
 
     all_sprites = pygame.sprite.Group()
 
@@ -25,9 +29,11 @@ def main():
 
     warrior = Warrior()
     goblin = Goblin()
-    current_selected = goblin
+    current_selected = warrior
 
-    characters = [warrior, goblin]
+    team = Team()
+    team.add_to_team1(warrior)
+    team.add_to_team2(goblin)
 
     # Loop principal do jogo
     running = True
@@ -38,18 +44,22 @@ def main():
 
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_LEFT:
-                    current_selected.moving = True
-                    current_selected.direction = 'left'
+                    if not (current_selected.stunned):
+                        current_selected.moving = True
+                        current_selected.direction = 'left'
                 elif event.key == pygame.K_RIGHT:
-                    current_selected.moving = True
-                    current_selected.direction = 'right'
+                    if not (current_selected.stunned):
+                        current_selected.moving = True
+                        current_selected.direction = 'right'
                 elif event.key == pygame.K_SPACE:
                     current_selected.attack()
                 elif event.key == pygame.K_UP:
                     current_selected.jump()
-                elif event.key == pygame.K_w:
-                    sq = Square(200, 300, 1)
-                    all_sprites.add(sq)
+                # elif event.key == pygame.K_q:
+                #     current_selected.Q_ability()
+                elif event.key == pygame.K_e:
+                    if current_selected.cooldown == 0:
+                        current_selected.E_ability(goblin)
             elif event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT or event.key == pygame.K_RIGHT:
                     current_selected.moving = False
@@ -59,10 +69,23 @@ def main():
         #         # warrior_sprite.rotate_axe.x, warrior_sprite.rotate_axe.y = warrior_sprite.player_x, warrior_sprite.player_y
         #         warrior_sprite.rotate_axe.append(RotatingAxe(warrior_sprite.player_x, warrior_sprite.player_y + 30, warrior_sprite.direction))
         #         warrior_sprite.throwing_axe = True
-        
-        # print(goblin.arrows)
 
-        screen.fill((255, 255, 255))
+        # elif event.key == pygame.K_w:
+        #             sq = Square(200, 300, 1)
+        #             all_sprites.add(sq)
+        
+        # print(warrior.damage)
+
+        # print(warrior.get_data())
+
+        # send to server
+
+        # print(f'{warrior.team}')
+        # print(warrior.other_team)
+
+        warrior.apply_data(warrior.get_data())
+
+        screen.blit(bg_image, bg_image.get_rect())
 
         warrior.update(FPS)
         warrior.draw(screen)
@@ -90,17 +113,18 @@ def main():
 
         # print(warrior.enemies)
 
-        if warrior.get_atk_hitbox().colliderect(goblin.get_rect()):
-            warrior.add_enemy(goblin)
-        else:
-            warrior.remove_enemy(goblin)
+        # if warrior.get_atk_hitbox().colliderect(goblin.get_rect()):
+        #     warrior.add_enemy(goblin)
+        # else:
+        #     warrior.remove_enemy(goblin)
 
-        if warrior.get_atk_hitbox().colliderect(goblin.get_rect()) and warrior.attacking == True:
-            warrior.can_damage = True
-            warrior.obj_damaged = goblin
-        else:
-            warrior.can_damage = False
-            warrior.obj_damaged = None
+        # if warrior.get_atk_hitbox().colliderect(goblin.get_rect()) and warrior.attacking:
+        #     warrior.can_damage = True
+        #     warrior.obj_damaged = goblin
+        # else:
+        #     warrior.can_damage = False
+        #     warrior.obj_damaged = None
+
 
         for a in goblin.arrows:
             if a.get_rect().colliderect(warrior.rect()):
